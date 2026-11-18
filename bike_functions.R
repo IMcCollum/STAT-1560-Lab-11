@@ -9,9 +9,9 @@ df <- read.csv("/Users/ianzmccollum/Desktop/course_files_export/Data/sample_bike
 #CLEAN BIKE DATA 
 
 #Remove X column 
-df <- df[,-1]
+#df <- df[,-1]
 
-df <- df |>
+#df <- df |>
   #Convert to start and end station to character values 
   mutate(
     start_station = as.character(start_station),
@@ -24,11 +24,11 @@ df <- df |>
 #If start station is R, then get rid of these rows because nothing is taken away 
 # from R. Then convert all inventory_change "start" to subtract and "end" to add. 
 
-df <- df[!(df$inventory_change == "start" & df$station == "R"),]
+#df <- df[!(df$inventory_change == "start" & df$station == "R"),]
 
 #Convert all start and end time to +1 and -1 
 
-df <- df |>
+#df <- df |>
   mutate(inventory_change = case_when( 
     inventory_change == "start" ~ -1L,
     inventory_change == "end" ~ +1L))
@@ -69,18 +69,9 @@ for (i in 1:nrow(event_table)) {
   current_inventory[sn] <- event_table$current_inventory[i]
 }
 
-#FIND X HAT 
+#FIND ALPHA 
 
-#Filter by departures 
-event_table <- event_table[event_table$inventory_change == -1L,]
-
-#Delete the event_type column 
-event_table <- event_table[, -4]
-
-#Remove inventory change and rename to departures table 
-
-departures_table <- event_table[, -3]
-
+#Calculate 
 
 
 #Remove customer type 
