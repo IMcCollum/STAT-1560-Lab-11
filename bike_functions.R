@@ -71,7 +71,14 @@ for (i in 1:nrow(event_table)) {
 
 #FIND ALPHA 
 
-#Calculate 
+#Group by hour and departure station ID 
+
+
+
+#FIND X HAT
+
+#Take the values we just calculate and merge them to find the departure 
+# destination 
 
 
 #Remove customer type 
