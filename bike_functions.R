@@ -4,7 +4,7 @@
 
 
 #LOAD DATA 
-df <- read.csv("/Users/ianzmccollum/Desktop/course_files_export/Data/sample_bike.csv")
+df <- read.csv("~/STAT1560/Data_export/sample_bike.csv")
 
 #CLEAN BIKE DATA 
 
@@ -85,7 +85,12 @@ departures_table <- event_table[, -3]
 
 #Remove customer type 
 
+#convert time
+event_table$time <- as.POSIXct(event_table$time)
+event_table$hour <- hour(event_table$time)
 
+event_table <- event_table %>%
+  group_by(station)
 
 #estimate_arrival_rates(data, window_start, window_end)
 
