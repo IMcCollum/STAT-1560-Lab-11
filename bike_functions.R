@@ -42,6 +42,10 @@ event_table <- df |>
     customer_type == "Subscriber" ~ "C"
   ))
 
+#Change column ordering to match above format
+event_table <- event_table |>
+  select(station, time, inventory_change, event_type)
+
 #CREATE EVENT TABLE 
 #identify the unique stations and create a vector for this  
 station_id <- unique(event_table$station)
@@ -64,6 +68,20 @@ for (i in 1:nrow(event_table)) {
   #update cumulative inventory to match current 
   current_inventory[sn] <- event_table$current_inventory[i]
 }
+
+#FIND X HAT 
+
+#Filter by departures 
+event_table <- event_table[event_table$inventory_change == -1L,]
+
+#Delete the event_type column 
+event_table <- event_table[, -4]
+
+#Remove inventory change and rename to departures table 
+
+departures_table <- event_table[, -3]
+
+
 
 #Remove customer type 
 
