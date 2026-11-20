@@ -4,7 +4,11 @@
 
 
 #LOAD DATA 
+<<<<<<< HEAD
 raw_df <- read.csv("/Users/ianzmccollum/Desktop/course_files_export/Data/sample_bike.csv")
+=======
+df <- read.csv("~/STAT1560/Data_export/sample_bike.csv")
+>>>>>>> 3e039a49e79a44a88a6dcc8a5a6e81dace19b8a8
 
 #CLEAN BIKE DATA 
 
@@ -168,7 +172,12 @@ combined <- combined |>
 #Create wrapper function that simply filters the combined function!
 Generalize that code into a function such as estimate_arrival_rates(data, window_start, window_end) that takes trip data and an observation window and returns the estimated hourly rates.
 
+#convert time
+event_table$time <- as.POSIXct(event_table$time)
+event_table$hour <- hour(event_table$time)
 
+event_table <- event_table %>%
+  group_by(station)
 
 
 #Your function should return a table with columns origin, destination, hour (0--23), observed_rate, availability, and rate. 
