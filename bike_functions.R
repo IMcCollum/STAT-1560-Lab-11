@@ -186,7 +186,7 @@ event_table <- event_table %>%
 
 
 ## ATTEMPTED PSEUDOCODE FOR PROBLEM 6
-## still need to add an outer for loop to loop through cobined stable
+## still need to add an outer for loop to loop through combined table
 
 # simulate_arrivals(rates, start_time, end_time) {
 #   arrivals <- table()
@@ -194,7 +194,7 @@ event_table <- event_table %>%
 #   
 #   ## METHOD 2 (for finding max rate per pair):
 #   combined_table %>%
-#     group_by(ORIGIN, DESTINATION) %>%    # may need to change grouping
+#     group_by(ORIGIN, DESTINATION) %>%    # may need to change grouping, add hour+date?
 #     mutate(M = max(RATE))    # should i use summarize?
 #   
 #   candidate_times_list <- list()
