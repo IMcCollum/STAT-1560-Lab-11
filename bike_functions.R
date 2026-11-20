@@ -4,11 +4,7 @@
 
 
 #LOAD DATA 
-<<<<<<< HEAD
 raw_df <- read.csv("/Users/ianzmccollum/Desktop/course_files_export/Data/sample_bike.csv")
-=======
-df <- read.csv("~/STAT1560/Data_export/sample_bike.csv")
->>>>>>> 3e039a49e79a44a88a6dcc8a5a6e81dace19b8a8
 
 #CLEAN BIKE DATA 
 
@@ -124,7 +120,6 @@ alpha_table <- event_table |>
   summarize(alpha = alpha(current_inventory, minutes),.groups = "drop")
 
 
-
 #FIND X HAT
 
 #limit raw_df to only customer trips 
@@ -163,21 +158,61 @@ combined$mu <- combined$xhat / combined$alpha
 #Rename columns 
 
 combined <- combined |>
-  rename("orgin" =  "start_station", 
+  rename("origin" =  "start_station", 
          "destination" = "end_station",
          "observed_rate" = "xhat",
          "avalibility" = "alpha",
          "rate" = "mu")
 
-#Create wrapper function that simply filters the combined function!
-Generalize that code into a function such as estimate_arrival_rates(data, window_start, window_end) that takes trip data and an observation window and returns the estimated hourly rates.
+#Create function that filters combined data frame 
 
-#convert time
-event_table$time <- as.POSIXct(event_table$time)
-event_table$hour <- hour(event_table$time)
+#Data must always be the combined data frame! 
+estimate_arrival_rate <- function(data, 
+                                  window_start, 
+                                  window_end) {
+  
+#Create stop -- all window_start and window_end should be in Y-M-D H:M:S format
+  #TO BE ADDED HERE
+  
+ #Convert inputs (From Y-M-D H:M:S) to POSIXct 
+  window_start <- ymd_hms(window_start)
+  window_end <- ymd_hms(window_end)
+ 
+  #Filter the function 
+  data <- data |>
+    mutate( 
+  #Convert hour from integer to numeric so can run hour() function later 
+      start_hour = as.numeric(start_hour))
+  #Create a combined date-hr column to be used to compare inputs 
+      start_datetime = ymd(start_date) + hour(start_hour)
+  #Since start and end time + date is the same for all of these entries 
+  #Can I just use these columns as both the start and end columns? 
+    filter(start_date >= window_start_date, 
+           start_date <= window_end_date,
+           start_hour >= window_start_hr,
+           start_hour <= window_end_hr
+           )
+  
+  #filter to only output the desired columns 
+  data <- data |>
+    rename(hour = start_hour, date = start_date)
+  
+  #Convert hour from integer to numeric 
+  
+  data$hour <- as.numeric(data$hour)
+  
+  #Reorder to start_date, start_hour, start_station
 
-event_table <- event_table %>%
-  group_by(station)
+  data <- data |>
+    arrange(date, hour, origin) 
+  
+  return(data)
+}
+
+df <- estimate_arrival_rate(combined, "2022-02-15 05:07:25", "2022-02-16 05:08:25")
+df
+
+
 
 
 #Your function should return a table with columns origin, destination, hour (0--23), observed_rate, availability, and rate. 
