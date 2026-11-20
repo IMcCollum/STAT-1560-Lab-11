@@ -130,7 +130,6 @@ df4 <- raw_df[!(raw_df$start_station == "R"),]
 df4$time_date_match <- df4$start_time == df4$end_time
 sum(df4$time_date_match == FALSE)
 
-
 #Separate start_time into date and time 
 
 # set timezone equal to timezone used in column 
@@ -205,13 +204,14 @@ estimate_arrival_rate <- function(data,
   return(data)
 }
 
-class(df$origin)
+#Combined doesn't have any availability equal to 0. Therefore, no NAs are added
+#to the function 
+sum(combined$avalibility == 0)
 
 #Example call 
 
 df <- estimate_arrival_rate(combined, "2022-02-15 05:07:25", "2022-02-16 05:08:25")
 df
-
 
 ## ATTEMPTED PSEUDOCODE FOR PROBLEM 6
 ## still need to add an outer for loop to loop through cobined stable
