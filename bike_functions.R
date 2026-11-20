@@ -4,8 +4,12 @@
 
 
 #LOAD DATA 
+<<<<<<< Updated upstream
 raw_df <- read.csv("/Users/ianzmccollum/Desktop/course_files_export/Data/sample_bike.csv")
 
+=======
+raw_df <- read.csv("~/STAT1560/Data_export/sample_bike.csv")
+>>>>>>> Stashed changes
 #CLEAN BIKE DATA 
 
 #Remove X column 
@@ -157,14 +161,26 @@ combined$mu <- combined$xhat / combined$alpha
   
 #Rename columns 
 
+<<<<<<< Updated upstream
 combined <- combined |>
+=======
+combined <- combined %>%
+>>>>>>> Stashed changes
   rename("origin" =  "start_station", 
          "destination" = "end_station",
          "observed_rate" = "xhat",
          "avalibility" = "alpha",
          "rate" = "mu")
 
+<<<<<<< Updated upstream
 #Create function that filters combined data frame 
+=======
+
+
+#Create wrapper function that simply filters the combined function!
+#Generalize that code into a function such as estimate_arrival_rates(data, window_start, window_end) 
+#that takes trip data and an observation window and returns the estimated hourly rates.
+>>>>>>> Stashed changes
 
 #Data must always be the combined data frame! 
 estimate_arrival_rate <- function(data, 
@@ -211,6 +227,103 @@ class(df$origin)
 
 df <- estimate_arrival_rate(combined, "2022-02-15 05:07:25", "2022-02-16 05:08:25")
 df
+
+## ATTEMPT 3, still working
+simulate_arrivals<- function(rates, start_time, end_time) {
+  arrivals <- data.frame(origin = rates$origin, 
+                         destination = rates$destination, 
+                         arrival_time = start_time)
+  
+  ## googled how to group the given table to get the origin destination pairs
+  origin_dest_pairs <- rates %>%
+    group_by(origin, destination) %>%
+    group_split()
+  
+  ## looping thru the pairs, finding max, generating candidate times adjusted by exponential wait times
+  for (num in origin_dest_pairs) {
+    M <- max(num$rate)
+    
+    if (M == 0) {
+      next
+    }
+    
+    ## making empty candidates
+    candidate_times_list <- c()
+    candidate_time <- start_time
+    
+    while (candidate_time < end_time) {
+      wait_time <- rexp(n = 1, rate = M)
+      
+      ## still need to convert hours to seconds and advance candidate time
+      candidate_time <- candidate_time + wait_time
+      
+      if (candidate_time < end_time) {
+        candidate_times_list <- c(candidate_times_list, candidate_time)
+      }
+    }
+    
+    ## comparing candidates to acceptance probs
+    for (u in candidate_times_list) {
+      candidate_hour <- hour(u)
+      hourly_rate <- combined$rate[combined$hour == candidate_hour]
+      
+      acceptance_probability <- hourly_rate / M
+      UU <- runif(1, min = 0, max = 1)
+      
+      if (UU < acceptance_probability) {
+        arrivals <- rbind(arrivals, origin = rates$origin, 
+                                    destination = rates$destination, 
+                                    arrival_time = u)
+      }
+    }
+  }
+}
+
+simulate_arrivals(combined, 100, 120)  ## error...
+
+
+## ATTEMPT 2
+# 
+# arrivals <- data.frame()
+# 
+# combined <- combined %>%
+#   group_by(start_date, start_hour, origin, destination) %>%    # may need to change grouping, add hour+date?
+#   mutate(M = max(rate))    # should i use summarize?
+# 
+# candidate_times_list <- list()
+# 
+# start_time_test <- 300
+# end_time_test <- 350
+# combined$candidate_time <- start_time_test
+# 
+# for (i in 1:nrow(combined)) {
+#   wait_time <- rexp(n = 1, rate = combined$M[i])
+# 
+#   ## need to convert candidate time & end time to seconds
+#   combined$candidate_time <- combined$candidate_time + wait_time
+# 
+#   if (combined$candidate_time[i] >= end_time_test) {
+#     break
+#   }
+# 
+#   candidate_times_list <- append(candidate_times_list, combined$candidate_time)
+#   
+#   for (u in candidate_times_list) {
+#     candidate_hour <- hour(u)
+#     hourly_rate <- combined$rate[combined$hour == candidate_hour]
+#     
+#     acceptance_probability <- hourly_rate / combined$M[i]
+#     UU <- runif(1, min = 0, max = 1)
+#     
+#     if (UU < acceptance_probability) {
+#       arrivals <- rbind(arrivals, data.frame(origin = rates$origin, 
+#                                              destination = rates$destination, 
+#                                              arrival_time = u))
+#     }
+#     
+#   }
+#   
+# }
 
 
 ## ATTEMPTED PSEUDOCODE FOR PROBLEM 6
