@@ -182,42 +182,35 @@ estimate_arrival_rate <- function(data,
   data <- data |>
     mutate( 
   #Convert hour from integer to numeric so can run hour() function later 
-      start_hour = as.numeric(start_hour))
+      start_hour = as.numeric(start_hour),
   #Create a combined date-hr column to be used to compare inputs 
-      start_datetime = ymd(start_date) + hour(start_hour)
+      start_datetime = ymd(start_date) + hours(start_hour),
+  #Convert origin to numeric to allow for sorting later (arrange)
+      origin = as.numeric(origin)) |>
   #Since start and end time + date is the same for all of these entries 
   #Can I just use these columns as both the start and end columns? 
-    filter(start_date >= window_start_date, 
-           start_date <= window_end_date,
-           start_hour >= window_start_hr,
-           start_hour <= window_end_hr
-           )
-  
-  #filter to only output the desired columns 
-  data <- data |>
-    rename(hour = start_hour, date = start_date)
-  
-  #Convert hour from integer to numeric 
-  
-  data$hour <- as.numeric(data$hour)
-  
-  #Reorder to start_date, start_hour, start_station
-
-  data <- data |>
-    arrange(date, hour, origin) 
-  
+  #Use the floor_date function to round down to the hour to ensure capture 
+      #starting hour 
+    filter(start_datetime >= floor_date(window_start, "hour"),
+           start_datetime <= window_end) |>
+    select(date = start_date, 
+           hour = start_hour, 
+           origin, 
+           destination, 
+           observed_rate, 
+           avalibility, 
+           rate) |>
+    arrange(date, hour, origin)
+    #return data frame 
   return(data)
 }
 
+class(df$origin)
+
+#Example call 
+
 df <- estimate_arrival_rate(combined, "2022-02-15 05:07:25", "2022-02-16 05:08:25")
 df
-
-
-
-
-#Your function should return a table with columns origin, destination, hour (0--23), observed_rate, availability, and rate. 
-#Calculate rate using the formula above. When availability is zero, return NA for rate: demand cannot be estimated from that group, even if its observed count is zero. 
-#Document arguments and return values with roxygen-style comments. State how you handle any input data checks.
 
 
 ## ATTEMPTED PSEUDOCODE FOR PROBLEM 6
