@@ -4,14 +4,14 @@
 
 
 #LOAD DATA 
-df <- read.csv("/Users/ianzmccollum/Desktop/course_files_export/Data/sample_bike.csv")
+raw_df <- read.csv("/Users/ianzmccollum/Desktop/course_files_export/Data/sample_bike.csv")
 
 #CLEAN BIKE DATA 
 
 #Remove X column 
-#df <- df[,-1]
+df <- raw_df[,-1]
 
-#df <- df |>
+df <- df |>
   #Convert to start and end station to character values 
   mutate(
     start_station = as.character(start_station),
@@ -24,11 +24,11 @@ df <- read.csv("/Users/ianzmccollum/Desktop/course_files_export/Data/sample_bike
 #If start station is R, then get rid of these rows because nothing is taken away 
 # from R. Then convert all inventory_change "start" to subtract and "end" to add. 
 
-#df <- df[!(df$inventory_change == "start" & df$station == "R"),]
+df <- df[!(df$inventory_change == "start" & df$station == "R"),]
 
 #Convert all start and end time to +1 and -1 
 
-#df <- df |>
+df <- df |>
   mutate(inventory_change = case_when( 
     inventory_change == "start" ~ -1L,
     inventory_change == "end" ~ +1L))
@@ -69,23 +69,107 @@ for (i in 1:nrow(event_table)) {
   current_inventory[sn] <- event_table$current_inventory[i]
 }
 
-#FIND ALPHA 
+#FIND ALPHA
 
-#Group by hour and departure station ID 
+#Add column with just the hour 
+
+event_table$hour <- hour(as.POSIXct(event_table$time))
+
+#Create column with just the date and time 
+
+event_table$time <- as.POSIXct(event_table$time)
+
+# set timezone equal to timezone used in column 
+event_table$date <- as.Date(event_table$time, tz = tz(event_table$time))
+event_table$minutes <- format(event_table$time, format = "%M.%S")
+event_table$minutes <- as.numeric(event_table$minutes)
+
+  
+#Create loop function that can be used to calculate minutes below 0 
+
+alpha <- function(current_inventory, minutes) {
+  #Set total to zero to start
+  total <- 0
+  #To prevent overwriting of loop need to create no_bikes to track when station has no bikes
+  no_bikes <- FALSE
+  #For loop iterates automatically so will keep checking if current_inventory dips below 0
+  for (i in 1:length(current_inventory)) {
+    if (current_inventory[i] == 0 & no_bikes == FALSE) {
+      start_nobike <- minutes[i]
+      #change no_bikes to true to ensure isn't overwritten 
+      no_bikes <- TRUE
+      #check, would I get a different answer if it was > 0 vs. == 1?
+    } else if (current_inventory[i] == 1 & no_bikes == TRUE) {
+      total <- total + (minutes[i] - start_nobike)
+      no_bikes <- FALSE
+    }
+  }
+  
+  #Catches the rest of the minutes if there no_bikes == TRUE until 60 min mark. 
+  if (no_bikes) {
+    total <- total + (60 - start_nobike)
+  }
+  #return the percentage of the minutes with at least one bike 
+  return(1 - (total/60))
+}
+
+#Use alpha to create summary table 
+
+alpha_table <- event_table |>
+  group_by(station, date, hour) |>
+  summarize(alpha = alpha(current_inventory, minutes),.groups = "drop")
 
 
 
 #FIND X HAT
 
-#Take the values we just calculate and merge them to find the departure 
-# destination 
+#limit raw_df to only customer trips 
+df4 <- raw_df[!(raw_df$start_station == "R"),]
+
+#Check if there is a difference between start and end times -- there is none
+
+df4$time_date_match <- df4$start_time == df4$end_time
+sum(df4$time_date_match == FALSE)
 
 
-#Remove customer type 
+#Separate start_time into date and time 
+
+# set timezone equal to timezone used in column 
+df4$start_date <- as.Date(df4$start_time, tz = tz(df4$start_time))
+df4$start_hour <- hour(df4$start_time)
+
+xhat <- df4|>
+  group_by(start_date, start_hour, start_station, end_station)|>
+  #divide by six complete observation days 
+  summarize(xhat = n()/6, .groups = "drop")
+#Checked the sum in summarize and the values make sense. 
+
+#FIND MU
+
+#Merge xhat and alpha data tables to get unified table for calculations
+
+combined <- left_join(xhat,alpha_table, by = join_by(start_date == date, 
+                                   start_station == station,
+                                   start_hour == hour))
+
+#Calculate Mu (rate) by dividing across 
+
+combined$mu <- combined$xhat / combined$alpha
+  
+#Rename columns 
+
+combined <- combined |>
+  rename("orgin" =  "start_station", 
+         "destination" = "end_station",
+         "observed_rate" = "xhat",
+         "avalibility" = "alpha",
+         "rate" = "mu")
+
+#Create wrapper function that simply filters the combined function!
+Generalize that code into a function such as estimate_arrival_rates(data, window_start, window_end) that takes trip data and an observation window and returns the estimated hourly rates.
 
 
 
-#estimate_arrival_rates(data, window_start, window_end)
 
 #Your function should return a table with columns origin, destination, hour (0--23), observed_rate, availability, and rate. 
 #Calculate rate using the formula above. When availability is zero, return NA for rate: demand cannot be estimated from that group, even if its observed count is zero. 
