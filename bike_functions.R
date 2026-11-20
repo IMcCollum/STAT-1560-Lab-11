@@ -184,3 +184,49 @@ event_table <- event_table %>%
 #Calculate rate using the formula above. When availability is zero, return NA for rate: demand cannot be estimated from that group, even if its observed count is zero. 
 #Document arguments and return values with roxygen-style comments. State how you handle any input data checks.
 
+
+## ATTEMPTED PSEUDOCODE FOR PROBLEM 6
+## still need to add an outer for loop to loop through cobined stable
+
+# simulate_arrivals(rates, start_time, end_time) {
+#   arrivals <- table()
+#   max_rate <= combined_table$rate[1]
+#   
+#   ## METHOD 2 (for finding max rate per pair):
+#   combined_table %>%
+#     group_by(ORIGIN, DESTINATION) %>%    # may need to change grouping
+#     mutate(M = max(RATE))    # should i use summarize?
+#   
+#   candidate_times_list <- list()
+#   
+#   combined_table$candidate_time <- start_time
+#   
+#   for (i in nrow(combined_table)) {
+#     wait_time <- rexp(1, n = M)
+#     
+#     ## need to convert candidate time & end time to seconds
+#     candidate_time <- candidate_time + wait_time
+#     
+#     if (candidate_time >= end_time) {
+#       break
+#     }
+#     
+#     candidate_times_list <- append(candidate_times_list, candidate_time)
+#   }
+#   
+#   for (u in candidate_times_list) {
+#     candidate_hour <- hour(candidate_times_list[u])
+#     hourly_rate <- combined_table$rate[combined_table$hour == candidate_hour]
+#     
+#     acceptance_probability <- hourly_rate / M
+#     UU <- Uniform(0,1)
+#     
+#     if (UU < acceptance_probability) {
+#       arrivals <- rbind(origin, destination, u)
+#     }
+#     
+#   }
+#   
+# }
+
+
