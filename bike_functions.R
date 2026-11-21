@@ -2,9 +2,15 @@
 
 #Function #1: Simulate NHPP arrivals
 
-
 #LOAD DATA 
+
 raw_df <- read.csv("/Users/ianzmccollum/Desktop/course_files_export/Data/sample_bike.csv")
+
+#LOAD PACKAGES 
+
+library(tidyr)
+library(dplyr)
+library(lubridate)
 
 #CLEAN BIKE DATA 
 
@@ -165,6 +171,11 @@ combined <- combined |>
 
 #Create function that filters combined data frame 
 
+
+#Create wrapper function that simply filters the combined function!
+#Generalize that code into a function such as estimate_arrival_rates(data, window_start, window_end) 
+#that takes trip data and an observation window and returns the estimated hourly rates.
+
 #Data must always be the combined data frame! 
 estimate_arrival_rate <- function(data, 
                                   window_start, 
@@ -213,8 +224,119 @@ sum(combined$avalibility == 0)
 df <- estimate_arrival_rate(combined, "2022-02-15 05:07:25", "2022-02-16 05:08:25")
 df
 
+
+#Function #2: Simulate NHPP arrivals
+
+#Rates == combined make sure to input this!
+
+#ATTEMPT 3, still working
+simulate_arrivals<- function(rates, start_time, end_time) {
+  arrivals <- data.frame(origin = rates$origin, 
+                         destination = rates$destination, 
+                         arrival_time = start_time)
+  rates <- combined
+  # Group to get origin and destination pairs 
+  origin_dest_pairs <- rates %>%
+    group_by(origin, destination) %>%
+    #Split each pair into distinct data frames  
+    group_split()
+  
+  origin_dest_pairs
+  
+  # looping through pairs, find max, generating candidate times adjusted by 
+  # exponential wait times
+  #Where is M stored? won't it just get overwritten? -- also says 24 hourly rates,
+  #do we have to group by hour for each one of our small data frames and take MAX of that?
+  for (num in origin_dest_pairs) {
+    M <- max(num$rate)
+    
+    if (M == 0) {
+      
+      next
+    }
+    
+    ## making empty candidates
+    candidate_times_list <- c()
+    candidate_time <- start_time
+    
+    #do we also need greater or equal to the start time?
+    while (candidate_time < end_time) {
+      wait_time <- rexp(n = 1, rate = M)
+      
+      ## still need to convert hours to seconds and advance candidate time
+      candidate_time <- candidate_time + wait_time
+      
+      if (candidate_time < end_time) {
+        candidate_times_list <- c(candidate_times_list, candidate_time)
+      }
+    }
+    
+    ## comparing candidates to acceptance probs
+    for (u in candidate_times_list) {
+      candidate_hour <- hour(u)
+      hourly_rate <- combined$rate[combined$hour == candidate_hour]
+      
+      acceptance_probability <- hourly_rate / M
+      UU <- runif(1, min = 0, max = 1)
+      
+      if (UU < acceptance_probability) {
+        arrivals <- rbind(arrivals, origin = rates$origin, 
+                                    destination = rates$destination, 
+                                    arrival_time = u)
+      }
+    }
+  }
+}
+
+simulate_arrivals(combined, 100, 120)  ## error...
+
+
+## ATTEMPT 2
+# 
+# arrivals <- data.frame()
+# 
+# combined <- combined %>%
+#   group_by(start_date, start_hour, origin, destination) %>%    # may need to change grouping, add hour+date?
+#   mutate(M = max(rate))    # should i use summarize?
+# 
+# candidate_times_list <- list()
+# 
+# start_time_test <- 300
+# end_time_test <- 350
+# combined$candidate_time <- start_time_test
+# 
+# for (i in 1:nrow(combined)) {
+#   wait_time <- rexp(n = 1, rate = combined$M[i])
+# 
+#   ## need to convert candidate time & end time to seconds
+#   combined$candidate_time <- combined$candidate_time + wait_time
+# 
+#   if (combined$candidate_time[i] >= end_time_test) {
+#     break
+#   }
+# 
+#   candidate_times_list <- append(candidate_times_list, combined$candidate_time)
+#   
+#   for (u in candidate_times_list) {
+#     candidate_hour <- hour(u)
+#     hourly_rate <- combined$rate[combined$hour == candidate_hour]
+#     
+#     acceptance_probability <- hourly_rate / combined$M[i]
+#     UU <- runif(1, min = 0, max = 1)
+#     
+#     if (UU < acceptance_probability) {
+#       arrivals <- rbind(arrivals, data.frame(origin = rates$origin, 
+#                                              destination = rates$destination, 
+#                                              arrival_time = u))
+#     }
+#     
+#   }
+#   
+# }
+
+
 ## ATTEMPTED PSEUDOCODE FOR PROBLEM 6
-## still need to add an outer for loop to loop through cobined stable
+## still need to add an outer for loop to loop through combined table
 
 # simulate_arrivals(rates, start_time, end_time) {
 #   arrivals <- table()
@@ -222,7 +344,7 @@ df
 #   
 #   ## METHOD 2 (for finding max rate per pair):
 #   combined_table %>%
-#     group_by(ORIGIN, DESTINATION) %>%    # may need to change grouping
+#     group_by(ORIGIN, DESTINATION) %>%    # may need to change grouping, add hour+date?
 #     mutate(M = max(RATE))    # should i use summarize?
 #   
 #   candidate_times_list <- list()
@@ -254,7 +376,4 @@ df
 #     }
 #     
 #   }
-#   
-# }
-
 
