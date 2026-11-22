@@ -234,50 +234,53 @@ simulate_arrivals<- function(rates, start_time, end_time) {
   arrivals <- data.frame(origin = rates$origin, 
                          destination = rates$destination, 
                          arrival_time = start_time)
-  rates <- combined
+  ###rates <- combined
   # Group to get origin and destination pairs 
   origin_dest_pairs <- rates %>%
-    group_by(origin, destination) %>%
+    group_by(origin, destination, start_hour) %>% 
     #Split each pair into distinct data frames  
     group_split()
   
-  origin_dest_pairs
+  ###origin_dest_pairs
   
   # looping through pairs, find max, generating candidate times adjusted by 
   # exponential wait times
   #Where is M stored? won't it just get overwritten? -- also says 24 hourly rates,
   #do we have to group by hour for each one of our small data frames and take MAX of that?
-  for (num in origin_dest_pairs) {
-    M <- max(num$rate)
+  for (vec in origin_dest_pairs) {
+    M <- max(vec$rate)
     
     if (M == 0) {
-      
       next
     }
     
     ## making empty candidates
+    ###start_time <- as.POSIXct("2026-11-21 16:05:00")
+    ###end_time <- as.POSIXct("2026-11-21 16:55:00")
+    
     candidate_times_list <- c()
     candidate_time <- start_time
     
     #do we also need greater or equal to the start time?
     while (candidate_time < end_time) {
-      wait_time <- rexp(n = 1, rate = M)
+      wait_time <- rexp(n = 1, rate = M)  ## i assume this is in minutes, but could be wrong??
+      wait_time_secs <- as.difftime((wait_time * 60), unit = "secs")
       
       ## still need to convert hours to seconds and advance candidate time
-      candidate_time <- candidate_time + wait_time
+      candidate_time <- candidate_time + wait_time_secs
       
       if (candidate_time < end_time) {
-        candidate_times_list <- c(candidate_times_list, candidate_time)
+        candidate_times_list <- c(candidate_time, candidate_times_list)
       }
     }
     
     ## comparing candidates to acceptance probs
     for (u in candidate_times_list) {
       candidate_hour <- hour(u)
-      hourly_rate <- combined$rate[combined$hour == candidate_hour]
+      hourly_rate <- vec$rate[vec$start_hour == candidate_hour]
       
       acceptance_probability <- hourly_rate / M
-      UU <- runif(1, min = 0, max = 1)
+      UU <- runif(1, min = 0, max = 1) 
       
       if (UU < acceptance_probability) {
         arrivals <- rbind(arrivals, origin = rates$origin, 
@@ -288,7 +291,7 @@ simulate_arrivals<- function(rates, start_time, end_time) {
   }
 }
 
-simulate_arrivals(combined, 100, 120)  ## error...
+simulate_arrivals(combined, as.POSIXct("2026-11-21 14:05:00"), as.POSIXct("2026-11-21 16:55:00"))  ## error...
 
 
 ## ATTEMPT 2
