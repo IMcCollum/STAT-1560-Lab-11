@@ -241,6 +241,11 @@ combined <- left_join(xhat,alpha_table, by = join_by(start_station == station))
 #Calculate Mu (rate) by dividing across 
 
 combined$mu <- combined$xhat / combined$alpha
+
+#If availability is 0 change Mu to NA 
+
+combined <- combined |>
+  mutate(mu = ifelse(alpha == 0, NA_real_, mu))
   
 #Rename columns 
 
@@ -252,10 +257,10 @@ combined <- combined |>
          "avalibility" = "alpha",
          "rate" = "mu")
 
-#Create function that filters combined data frame - STILL BEING EDITED!
+#Create function that filters combined data frame
 
 #Data must always be the combined data frame! 
-estimate_arrival_rate <- function(data, 
+estimate_arrival_rate <- function(combined, 
                                   window_start, 
                                   window_end) {
   
@@ -267,30 +272,23 @@ estimate_arrival_rate <- function(data,
   window_end <- ymd_hms(window_end)
  
   #Filter the function 
-  data <- data |>
+  combined <- combined |>
     mutate( 
-  #Convert hour from integer to numeric so can run hour() function later 
-      start_hour = as.numeric(start_hour),
-  #Create a combined date-hr column to be used to compare inputs 
-      start_datetime = ymd(start_date) + hours(start_hour),
-  #Convert origin to numeric to allow for sorting later (arrange)
+  #Ensure hour and origin are numeric 
+      hour = as.numeric(hour),
       origin = as.numeric(origin)) |>
-  #Since start and end time + date is the same for all of these entries 
-  #Can I just use these columns as both the start and end columns? 
-  #Use the floor_date function to round down to the hour to ensure capture 
-      #starting hour 
-    filter(start_datetime >= floor_date(window_start, "hour"),
-           start_datetime <= window_end) |>
-    select(date = start_date, 
-           hour = start_hour, 
+      #filer hour by the assigned hour on the dates 
+    filter(hour >= floor_date(window_start, "hour"),
+           hour <= floor_date(window_end, "hour")) |>
+    select(hour = start_hour, 
            origin, 
            destination, 
            observed_rate, 
            avalibility, 
            rate) |>
-    arrange(date, hour, origin)
+    arrange(hour, origin)
     #return data frame 
-  return(data)
+  return(combined)
 }
 
 #Combined doesn't have any availability equal to 0. Therefore, no NAs are added
@@ -299,7 +297,7 @@ sum(combined$avalibility == 0)
 
 #Example call 
 
-df <- estimate_arrival_rate(combined, "2022-02-15 05:07:25", "2022-02-16 05:08:25")
+df <- estimate_arrival_rate(combined, "2022-02-15 05:07:25", "2022-02-15 10:08:25")
 df
 
 
