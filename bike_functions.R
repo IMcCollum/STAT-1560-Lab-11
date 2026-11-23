@@ -26,21 +26,21 @@ df <- df |>
   pivot_longer(cols = c(start_station,end_station,start_time,end_time), 
                names_to = c("inventory_change", ".value"), names_sep = "_")
 
-#Clean data
+#clean data
 
-#If station is R, get rid of rows because not actually station 
+#if station is R, get rid of rows because not actually station 
 
 df <- df |>
   filter(station != "R")
 
-#Convert all start and end time to +1 and -1 
+#convert all start and end time to +1 and -1 
 
 df <- df |>
   mutate(inventory_change = case_when( 
     inventory_change == "start" ~ -1L,
     inventory_change == "end" ~ +1L))
 
-#Change event type -- None --> R and Subscriber & One-Time --> C
+#change event type None --> R and Subscriber & One-Time --> C
 
 event_table <- df |>
   mutate(event_type = case_when(
@@ -53,11 +53,9 @@ event_table <- df |>
 event_table <- event_table |>
   select(station, time, inventory_change, event_type)
 
-#CREATE EVENT TABLE 
+#Create event table
 #identify the unique stations and create a vector for this  
 station_id <- unique(event_table$station)
-
-station_id
 
 #Determine how long the current_inventory has to be 
 length(unique(event_table$station))
@@ -79,7 +77,7 @@ for (i in 1:nrow(event_table)) {
   current_inventory_tracker[sn] <- event_table$current_inventory[i]
 }
 
-#FIND ALPHA (new directions)
+#FIND ALPHA (Per Dr. Paul New Directions)
 
 #Ensure that time is in POSIXct format
 event_table$time <- as.POSIXct(event_table$time)
@@ -89,44 +87,40 @@ event_table <- event_table |>
   arrange(time, .by_group = TRUE) 
 
 #Find time for each station with inventory 0 and then divide by total time 
-#which is 6 days or 6*24*60*60 minutes (518400 seconds)
+#which is 6 days or 6*24*60*60 seconds (518400 seconds)
 
 alpha <- function(current_inventory, time) {
   #Set total to zero to start
   total <- 0
-  #To prevent overwriting of loop need to create no_bikes to track when station has no bikes
+  #To prevent overwriting of loop need to create no_bikes to track when station 
+  #has no bikes
   no_bikes <- FALSE
   for (i in 1:length(current_inventory)) {
     if (current_inventory[i] == 0 & no_bikes == FALSE) {
       start_nobike <- time[i]
       #change no_bikes to true to ensure isn't overwritten 
       no_bikes <- TRUE
-      #check, would I get a different answer if it was > 0 vs. == 1?
     } else if (current_inventory[i] > 0 & no_bikes == TRUE) {
       total <- total + (time[i] - start_nobike)
       no_bikes <- FALSE
     }
   }
   
-  #Catches the rest of the minutes if there no_bikes == TRUE until 
-  #midnight on 22nd  
+  #Catches the rest of the minutes if no_bikes == TRUE until midnight on 22  
   if (no_bikes) {
     total <- total + as.POSIXct("2022-02-23 00:00:00", 
                                 tz = tz(time)) - start_nobike
   }
-  #return the percentage of the minutes with at least one bike -- need to update this!
+  #return percentage of the minutes with at least one bike
   return(as.numeric(1 - (total/518400)))
 }
 
-#Use alpha to create summary table 
-
+#Find alpha values by applying the alpha function
 alpha_table <- event_table |>
-  #do I need to redo this since alrady grouped by station above?!
   group_by(station) |>
   summarize(alpha = alpha(current_inventory, time),.groups = "drop")
 
-
-#DISREGARD OLD ATTEMPT TO FIND ALPHA 
+#DISREAGRD (old attampt to find alpha old directions) 
 
 #Add column with just the hour 
 
@@ -202,7 +196,6 @@ alpha_table <- event_table |>
 #  mutate(alpha = 
          #  ifelse(is.na(alpha),0,alpha))
 
-
 #FIND X HAT
 
 #limit raw_df to only customer trips 
@@ -234,7 +227,7 @@ xhat <- xhat |>
 
 #FIND MU
 
-#Merge xhat and alpha data tables to get unified table for calculations
+#Merge xhat and alpha data tables to get unified table 
 
 combined <- left_join(xhat,alpha_table, by = join_by(start_station == station))
 
@@ -259,17 +252,29 @@ combined <- combined |>
 
 #Create function that filters combined data frame
 
-#Data must always be the combined data frame! 
-estimate_arrival_rate <- function(combined, 
-                                  window_start, 
+#' Estimated bike user request rate  
+#' 
+#' @description Creates a data frame between given times showing the average 
+#' request rate for each origin and destination pair. 
+#'
+#' @param start_window the starting time to estimate in H:M:S format 
+#' @param end_window the ending time to estimate in H:M:S format 
+#' 
+#' @return data frame 
+
+estimate_arrival_rate <- function(window_start, 
                                   window_end) {
   
-#Create stop -- all window_start and window_end should be in Y-M-D H:M:S format
-  #TO BE ADDED HERE
+#Create stops 
+  #strptime mandates format of input to specification 
+  if(is.na(strptime(window_start, format = "%H:%M:%S")) || 
+     is.na(strptime(window_end, format = "%H:%M:%S"))) {
+    stop("window_start and window_end must be valid times in the H:M:S format")
+  }
   
- #Convert inputs (From Y-M-D H:M:S) to POSIXct 
-  window_start <- ymd_hms(window_start)
-  window_end <- ymd_hms(window_end)
+ #Convert inputs (H:M:S) to lubridate hms to use hour() later
+  window_start <- hms(window_start)
+  window_end <- hms(window_end)
  
   #Filter the function 
   combined <- combined |>
@@ -278,9 +283,9 @@ estimate_arrival_rate <- function(combined,
       hour = as.numeric(hour),
       origin = as.numeric(origin)) |>
       #filer hour by the assigned hour on the dates 
-    filter(hour >= floor_date(window_start, "hour"),
-           hour <= floor_date(window_end, "hour")) |>
-    select(hour = start_hour, 
+    filter(hour >= hour(window_start),
+           hour <= hour(window_end)) |>
+    select(hour, 
            origin, 
            destination, 
            observed_rate, 
@@ -297,9 +302,8 @@ sum(combined$avalibility == 0)
 
 #Example call 
 
-df <- estimate_arrival_rate(combined, "2022-02-15 05:07:25", "2022-02-15 10:08:25")
+df <- estimate_arrival_rate("5:2:3", "6:2:4")
 df
-
 
 #Function #2: Simulate NHPP arrivals
 
@@ -310,8 +314,6 @@ simulate_arrivals<- function(rates, start_time, end_time) {
   arrivals <- data.frame(origin = rates$origin, 
                          destination = rates$destination, 
                          arrival_time = start_time)
-
-
   combined <- rates
     # Group to get origin and destination pairs 
   origin_dest_pairs <- rates %>%
@@ -378,7 +380,7 @@ simulate_arrivals<- function(rates, start_time, end_time) {
   }
 }
 
-simulate_arrivals(combined, as.POSIXct("2026-11-21 14:05:00"), as.POSIXct("2026-11-21 16:55:00"))  ## error...
+simulate_arrivals(combined, as.POSIXct("2026-11-21 14:05:00"), as.POSIXct("2026-11-21 16:55:00"))  
 
 
 ## ATTEMPT 2
