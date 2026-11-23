@@ -305,18 +305,6 @@ sum(combined$avalibility == 0)
 df <- estimate_arrival_rate("5:2:3", "6:2:4")
 df
 
-<<<<<<< HEAD
-#Function #2: Simulate NHPP arrivals
-
-#Rates == combined make sure to input this!
-
-#ATTEMPT 3, still working
-simulate_arrivals<- function(rates, start_time, end_time) {
-  arrivals <- data.frame(origin = rates$origin, 
-                         destination = rates$destination, 
-                         arrival_time = start_time)
-=======
-
 #' Function #2: Simulate NHPP arrivals
 #' 
 #' @description Simulates customer requests during half-open interval 
@@ -334,8 +322,7 @@ simulate_arrivals<- function(rates, start_time, end_time) {
                          destination = rates$destination[FALSE], 
                          arrival_time = start_time[FALSE])
 
->>>>>>> 231659ba52a34ebbb10a75ff10fa5758adb9ceb9
-  combined <- rates
+    combined <- rates
 
   # Group to get origin and destination pairs 
   origin_dest_pairs <- rates %>%
