@@ -4,7 +4,7 @@
 
 #LOAD DATA 
 
-raw_df <- read.csv("/Users/ianzmccollum/Desktop/course_files_export/Data/sample_bike.csv")
+raw_df <- read.csv("~/STAT1560/Data_export/sample_bike.csv")
 
 #LOAD PACKAGES 
 
@@ -303,38 +303,34 @@ df <- estimate_arrival_rate(combined, "2022-02-15 05:07:25", "2022-02-16 05:08:2
 df
 
 
-#Function #2: Simulate NHPP arrivals
-
-#Rates == combined make sure to input this!
-
-#ATTEMPT 3, still working
+#' Function #2: Simulate NHPP arrivals
+#' 
+#' @description Simulates customer requests during half-open interval 
+#' 
+#' @param rates Data frame of origin-destination pairs and corresponding 
+#' availability and hourly rates
+#' @param start_time Customer start time
+#' @param end_time Customer end time
+#' 
+#' @result Data frame of sorted arrival times
+#' 
+#ATTEMPT 3
 simulate_arrivals<- function(rates, start_time, end_time) {
-  arrivals <- data.frame(origin = rates$origin, 
-                         destination = rates$destination, 
-                         arrival_time = start_time)
-
+  arrivals <- data.frame(origin = rates$origin[FALSE], 
+                         destination = rates$destination[FALSE], 
+                         arrival_time = start_time[FALSE])
 
   combined <- rates
-    # Group to get origin and destination pairs 
-  origin_dest_pairs <- rates %>%
-    group_by(origin, destination, start_hour) %>%
 
-    
-  ###rates <- combined
   # Group to get origin and destination pairs 
   origin_dest_pairs <- rates %>%
-    group_by(origin, destination, start_hour) %>% 
+    group_by(origin, destination) %>% 
 
-    
     #Split each pair into distinct data frames  
     group_split()
   
-  ###origin_dest_pairs
-  
-  # looping through pairs, find max, generating candidate times adjusted by 
-  # exponential wait times
-  #Where is M stored? won't it just get overwritten? -- also says 24 hourly rates,
-  #do we have to group by hour for each one of our small data frames and take MAX of that?
+  ## looping through pairs, find max, generating candidate times adjusted by 
+  ## exponential wait times
   for (vec in origin_dest_pairs) {
     M <- max(vec$rate)
     
@@ -342,45 +338,42 @@ simulate_arrivals<- function(rates, start_time, end_time) {
       next
     }
     
-    ## making empty candidates
-    ###start_time <- as.POSIXct("2026-11-21 16:05:00")
-    ###end_time <- as.POSIXct("2026-11-21 16:55:00")
-    
-    candidate_times_list <- c()
+    ## making empty candidates, adjusting candidate times by wait times
+    candidate_times_list <- list()
     candidate_time <- start_time
     
-    #do we also need greater or equal to the start time?
     while (candidate_time < end_time) {
-      wait_time <- rexp(n = 1, rate = M)  ## i assume this is in minutes, but could be wrong??
-      wait_time_secs <- as.difftime((wait_time * 60), unit = "secs")
+      wait_time <- rexp(n = 1, rate = M)
+      wait_time_secs <- as.difftime((wait_time * 3600), unit = "secs")
       
-      ## still need to convert hours to seconds and advance candidate time
       candidate_time <- candidate_time + wait_time_secs
       
       if (candidate_time < end_time) {
-        candidate_times_list <- c(candidate_time, candidate_times_list)
+        candidate_times_list <- append(candidate_times_list, list(candidate_time))
       }
     }
 
-#START
-    ## comparing candidates to acceptance probs
+    ## comparing candidates to acceptance probabilities
     for (u in candidate_times_list) {
       candidate_hour <- hour(u)
-      hourly_rate <- vec$rate[vec$start_hour == candidate_hour]
+      hourly_rate <- vec$rate[vec$hour == candidate_hour]
       
       acceptance_probability <- hourly_rate / M
       UU <- runif(1, min = 0, max = 1) 
       
       if (UU < acceptance_probability) {
-        arrivals <- rbind(arrivals, origin = rates$origin, 
-                                    destination = rates$destination, 
-                                    arrival_time = u)
+        arrivals <- rbind(arrivals, data.frame(origin = vec$origin[1], 
+                                               destination = vec$destination[1], 
+                                               arrival_time = u))
       }
     }
   }
+  
+  arrivals <- arrivals[order(arrivals$arrival_time), ]
+  return(arrivals)
 }
 
-simulate_arrivals(combined, as.POSIXct("2026-11-21 14:05:00"), as.POSIXct("2026-11-21 16:55:00"))  ## error...
+simulate_arrivals(combined, as.POSIXct("2026-11-21 16:05:00"), as.POSIXct("2026-11-21 16:25:00"))
 
 
 ## ATTEMPT 2
