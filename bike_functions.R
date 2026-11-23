@@ -4,7 +4,7 @@
 
 #LOAD DATA 
 
-raw_df <- read.csv("~/STAT1560/Data_export/sample_bike.csv")
+raw_df <- read.csv("/Users/ianzmccollum/Desktop/course_files_export/Data/sample_bike.csv")
 
 #LOAD PACKAGES 
 
@@ -302,8 +302,9 @@ sum(combined$avalibility == 0)
 
 #Example call 
 
-df <- estimate_arrival_rate("5:2:3", "6:2:4")
-df
+output1 <- estimate_arrival_rate("5:2:3", "6:2:4")
+output1
+
 
 #' Function #2: Simulate NHPP arrivals
 #' 
@@ -315,8 +316,7 @@ df
 #' @param end_time Customer end time
 #' 
 #' @result Data frame of sorted arrival times
-#' 
-#ATTEMPT 3
+
 simulate_arrivals<- function(rates, start_time, end_time) {
   arrivals <- data.frame(origin = rates$origin[FALSE], 
                          destination = rates$destination[FALSE], 
@@ -375,11 +375,8 @@ simulate_arrivals<- function(rates, start_time, end_time) {
   return(arrivals)
 }
 
-<<<<<<< HEAD
-simulate_arrivals(combined, as.POSIXct("2026-11-21 14:05:00"), as.POSIXct("2026-11-21 16:55:00"))  
-=======
-simulate_arrivals(combined, as.POSIXct("2026-11-21 16:05:00"), as.POSIXct("2026-11-21 16:25:00"))
->>>>>>> 231659ba52a34ebbb10a75ff10fa5758adb9ceb9
+output2 <- simulate_arrivals(combined, as.POSIXct("2026-11-21 14:05:00"), 
+                  as.POSIXct("2026-11-21 16:55:00")) 
 
 
 ## ATTEMPT 2
