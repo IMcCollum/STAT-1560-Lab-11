@@ -18,6 +18,7 @@ library(lubridate)
 df <- raw_df[,-1]
 
 df <- df |>
+  
   #Convert to start and end station to character values 
   mutate(
     start_station = as.character(start_station),
@@ -27,10 +28,10 @@ df <- df |>
 
 #Clean data
 
-#If start station is R, then get rid of these rows because nothing is taken away 
-# from R. Then convert all inventory_change "start" to subtract and "end" to add. 
+#If station is R, get rid of rows because not actually station 
 
-df <- df[!(df$inventory_change == "start" & df$station == "R"),]
+df <- df |>
+  filter(station != "R")
 
 #Convert all start and end time to +1 and -1 
 
@@ -56,74 +57,150 @@ event_table <- event_table |>
 #identify the unique stations and create a vector for this  
 station_id <- unique(event_table$station)
 
+station_id
+
 #Determine how long the current_inventory has to be 
 length(unique(event_table$station))
 
 #Set all stations equal to initial value of 0 bikes. 
-current_inventory <- rep(0,22)
+current_inventory_tracker <- rep(0L, length(station_id))
 
 #Attach the 0 values to the station ids vector we created above
-names(current_inventory) <- station_id
+names(current_inventory_tracker) <- station_id
+
 #Create loop 
 
 for (i in 1:nrow(event_table)) {
   sn <- event_table$station[i] #index to select the station name 
   #add value of bike to station 
   event_table$current_inventory[i] <- event_table$inventory_change[i] + 
-    current_inventory[sn] 
+    current_inventory_tracker[sn] 
   #update cumulative inventory to match current 
-  current_inventory[sn] <- event_table$current_inventory[i]
+  current_inventory_tracker[sn] <- event_table$current_inventory[i]
 }
 
-#FIND ALPHA
+#FIND ALPHA (new directions)
 
-#Add column with just the hour 
-
-event_table$hour <- hour(as.POSIXct(event_table$time))
-
-#Create column with just the date and time 
-
+#Ensure that time is in POSIXct format
 event_table$time <- as.POSIXct(event_table$time)
 
-# set timezone equal to timezone used in column 
-event_table$date <- as.Date(event_table$time, tz = tz(event_table$time))
-event_table$minutes <- format(event_table$time, format = "%M.%S")
-event_table$minutes <- as.numeric(event_table$minutes)
+#Group by station and arrange by time 
+event_table <- event_table |>
+  arrange(time, .by_group = TRUE) 
 
-  
-#Create loop function that can be used to calculate minutes below 0 
+#Find time for each station with inventory 0 and then divide by total time 
+#which is 6 days or 6*24*60*60 minutes (518400 seconds)
 
-alpha <- function(current_inventory, minutes) {
+alpha <- function(current_inventory, time) {
   #Set total to zero to start
   total <- 0
   #To prevent overwriting of loop need to create no_bikes to track when station has no bikes
   no_bikes <- FALSE
-  #For loop iterates automatically so will keep checking if current_inventory dips below 0
   for (i in 1:length(current_inventory)) {
     if (current_inventory[i] == 0 & no_bikes == FALSE) {
-      start_nobike <- minutes[i]
+      start_nobike <- time[i]
       #change no_bikes to true to ensure isn't overwritten 
       no_bikes <- TRUE
       #check, would I get a different answer if it was > 0 vs. == 1?
-    } else if (current_inventory[i] == 1 & no_bikes == TRUE) {
-      total <- total + (minutes[i] - start_nobike)
+    } else if (current_inventory[i] > 0 & no_bikes == TRUE) {
+      total <- total + (time[i] - start_nobike)
       no_bikes <- FALSE
     }
   }
   
-  #Catches the rest of the minutes if there no_bikes == TRUE until 60 min mark. 
+  #Catches the rest of the minutes if there no_bikes == TRUE until 
+  #midnight on 22nd  
   if (no_bikes) {
-    total <- total + (60 - start_nobike)
+    total <- total + as.POSIXct("2022-02-23 00:00:00", 
+                                tz = tz(time)) - start_nobike
   }
-  #return the percentage of the minutes with at least one bike 
-  return(1 - (total/60))
+  #return the percentage of the minutes with at least one bike -- need to update this!
+  return(as.numeric(1 - (total/518400)))
 }
 
 #Use alpha to create summary table 
 
 alpha_table <- event_table |>
-  group_by(station, date, hour) |>
-  summarize(alpha = alpha(current_inventory, minutes),.groups = "drop")
+  #do I need to redo this since alrady grouped by station above?!
+  group_by(station) |>
+  summarize(alpha = alpha(current_inventory, time),.groups = "drop")
+
+
+#DISREGARD OLD ATTEMPT TO FIND ALPHA 
+
+#Add column with just the hour 
+
+#event_table$hour <- hour(as.POSIXct(event_table$time))
+
+#Create column with just the date and time 
+#event_table$time <- as.POSIXct(event_table$time)
+
+# set timezone equal to timezone used in column 
+#event_table$date <- as.Date(event_table$time, tz = tz(event_table$time))
+#event_table$minutes <- format(event_table$time, format = "%M.%S")
+#event_table$minutes <- as.numeric(event_table$minutes)
+
+#Create loop function that can be used to calculate minutes below 0 
+
+#alpha <- function(current_inventory, minutes) {
+  #Set total to zero to start
+ # total <- 0
+  #To prevent overwriting of loop need to create no_bikes to track when station has no bikes
+  #no_bikes <- FALSE
+  #For loop iterates automatically so will keep checking if current_inventory dips below 0
+ # for (i in 1:length(current_inventory)) {
+ #   if (current_inventory[i] == 0 & no_bikes == FALSE) {
+  #    start_nobike <- minutes[i]
+      #change no_bikes to true to ensure isn't overwritten 
+   #   no_bikes <- TRUE
+      #check, would I get a different answer if it was > 0 vs. == 1?
+    #} else if (current_inventory[i] > 0 & no_bikes == TRUE) {
+    #  total <- total + (minutes[i] - start_nobike)
+   #   no_bikes <- FALSE
+ #   }
+#  }
+  
+  #Catches the rest of the minutes if there no_bikes == TRUE until 60 min mark. 
+#  if (no_bikes) {
+#    total <- total + (60 - start_nobike)
+#  }
+  #return the percentage of the minutes with at least one bike 
+ # return(1 - (total/60))
+#}
+
+#Use alpha to create summary table 
+
+#alpha_table <- event_table |>
+ # group_by(station, date, hour) |>
+  #summarize(alpha = alpha(current_inventory, minutes),.groups = "drop")
+
+#Average all the alphas across days to get on entry per hour per station 
+
+#alpha_table <- alpha_table |>
+ # group_by(station, hour) |>
+ # summarize(alpha = sum(alpha)/n())
+
+#Create an empty data frame to merge with alpha table to have complete hours 
+
+#Station id is all unique stations 
+
+#station <- station_id
+#hour <- c(0:23)
+
+#Create grid of all possible hours for each station 
+
+#alpha_empty <- expand_grid(station = station, hour = hour)
+
+#Use a left merge to match 
+
+#alpha_table <- left_join(alpha_empty, alpha_table, 
+                        #  by = c("station" = "station", "hour" = "hour"))
+
+#Replace all NA values with 0 -- NAs aren't necessarily 0 confused here!
+
+#alpha_table <- alpha_table |>
+#  mutate(alpha = 
+         #  ifelse(is.na(alpha),0,alpha))
 
 
 #FIND X HAT
@@ -136,25 +213,30 @@ df4 <- raw_df[!(raw_df$start_station == "R"),]
 df4$time_date_match <- df4$start_time == df4$end_time
 sum(df4$time_date_match == FALSE)
 
-#Separate start_time into date and time 
-
-# set timezone equal to timezone used in column 
-df4$start_date <- as.Date(df4$start_time, tz = tz(df4$start_time))
+#Convert start_time to hour and station_id to character 
 df4$start_hour <- hour(df4$start_time)
+df4$start_station <- as.character(df4$start_station)
 
 xhat <- df4|>
-  group_by(start_date, start_hour, start_station, end_station)|>
+  group_by(start_station, end_station, start_hour)|>
   #divide by six complete observation days 
   summarize(xhat = n()/6, .groups = "drop")
-#Checked the sum in summarize and the values make sense. 
+
+#Expand the grid using existing combinations to show missing hours 
+
+xhat <- xhat |>
+  #complete finds every combination of start_hour and the combined start_station
+  #and end_station 
+  complete(nesting(start_station, end_station), start_hour = 0:23) |>
+  #Because xhat is the number of observed customer departures replace NAs w/ 0
+  mutate(xhat = ifelse(is.na(xhat), 0L, xhat))
+
 
 #FIND MU
 
 #Merge xhat and alpha data tables to get unified table for calculations
 
-combined <- left_join(xhat,alpha_table, by = join_by(start_date == date, 
-                                   start_station == station,
-                                   start_hour == hour))
+combined <- left_join(xhat,alpha_table, by = join_by(start_station == station))
 
 #Calculate Mu (rate) by dividing across 
 
@@ -163,18 +245,14 @@ combined$mu <- combined$xhat / combined$alpha
 #Rename columns 
 
 combined <- combined |>
-  rename("origin" =  "start_station", 
+  rename("origin" =  "start_station",
+         "hour" = "start_hour",
          "destination" = "end_station",
          "observed_rate" = "xhat",
          "avalibility" = "alpha",
          "rate" = "mu")
 
-#Create function that filters combined data frame 
-
-
-#Create wrapper function that simply filters the combined function!
-#Generalize that code into a function such as estimate_arrival_rates(data, window_start, window_end) 
-#that takes trip data and an observation window and returns the estimated hourly rates.
+#Create function that filters combined data frame - STILL BEING EDITED!
 
 #Data must always be the combined data frame! 
 estimate_arrival_rate <- function(data, 
@@ -234,10 +312,11 @@ simulate_arrivals<- function(rates, start_time, end_time) {
   arrivals <- data.frame(origin = rates$origin, 
                          destination = rates$destination, 
                          arrival_time = start_time)
-  rates <- combined
-  # Group to get origin and destination pairs 
+
+  combined <- rates
+    # Group to get origin and destination pairs 
   origin_dest_pairs <- rates %>%
-    group_by(origin, destination) %>%
+    group_by(origin, destination, start_hour) %>%
     #Split each pair into distinct data frames  
     group_split()
   
@@ -270,7 +349,8 @@ simulate_arrivals<- function(rates, start_time, end_time) {
         candidate_times_list <- c(candidate_times_list, candidate_time)
       }
     }
-    
+
+#START
     ## comparing candidates to acceptance probs
     for (u in candidate_times_list) {
       candidate_hour <- hour(u)
